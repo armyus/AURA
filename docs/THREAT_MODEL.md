@@ -34,6 +34,8 @@ The browser is an untrusted client. The local HTTP service, SQLite database, upl
 
 ## Security acceptance checks
 
+The unit/workflow suite verifies local authentication and session behavior, rejects a cross-origin mutation, confirms aggregate metrics exclude decision text, and enforces the configured per-session AI request cap.
+
 - Unauthenticated API requests return 401; setup can be completed only once.
 - Short passwords are rejected; password hashes and session tokens are never stored in plaintext.
 - A session expires after 12 hours and logout revokes it server-side.

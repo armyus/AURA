@@ -1,15 +1,21 @@
 import json
+import hashlib
 import os
 import tempfile
 import threading
+import time
 import unittest
 import urllib.error
 import urllib.request
 import uuid
+from types import SimpleNamespace
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from unittest.mock import patch
 
-_TEMP = tempfile.TemporaryDirectory(prefix="aura-tests-")
+_TEMP = tempfile.TemporaryDirectory(
+    prefix="aura-tests-", dir=Path(__file__).resolve().parents[1] / "data"
+)
 os.environ["AURA_DB_PATH"] = str(Path(_TEMP.name) / "aura.sqlite3")
 from aura import server as aura_server
 
@@ -43,25 +49,51 @@ class WorkflowApiTests(unittest.TestCase):
                 type(self).cookie = response.headers.get("Set-Cookie", "").split(";", 1)[0]
             return response.status, json.loads(response.read()) if response.headers.get_content_type() == "application/json" else response.read()
 
+    def assert_http_error(self, request, status):
+        try:
+            urllib.request.urlopen(request, timeout=5)
+        except urllib.error.HTTPError as error:
+            self.assertEqual(error.code, status)
+            error.close()
+        else:
+            self.fail(f"Expected HTTP {status} for {request.full_url}")
+
     def test_workspace_authentication_and_logout(self):
         setup_req = urllib.request.Request(self.base + "/api/auth/setup", data=json.dumps({"password":"another-password-value"}).encode(), method="POST", headers={"Content-Type":"application/json"})
-        with self.assertRaises(urllib.error.HTTPError) as repeated_setup:
-            urllib.request.urlopen(setup_req, timeout=5)
-        self.assertEqual(repeated_setup.exception.code, 409)
+        self.assert_http_error(setup_req, 409)
         bad_login = urllib.request.Request(self.base + "/api/auth/login", data=json.dumps({"password":"wrong-password"}).encode(), method="POST", headers={"Content-Type":"application/json"})
-        with self.assertRaises(urllib.error.HTTPError) as rejected:
-            urllib.request.urlopen(bad_login, timeout=5)
-        self.assertEqual(rejected.exception.code, 401)
+        self.assert_http_error(bad_login, 401)
         req = urllib.request.Request(self.base + "/api/decisions")
-        with self.assertRaises(urllib.error.HTTPError) as blocked:
-            urllib.request.urlopen(req, timeout=5)
-        self.assertEqual(blocked.exception.code, 401)
+        self.assert_http_error(req, 401)
         self.request("/api/auth/logout", "POST", {})
-        with self.assertRaises(urllib.error.HTTPError) as logged_out:
-            urllib.request.urlopen(req, timeout=5)
-        self.assertEqual(logged_out.exception.code, 401)
+        self.assert_http_error(req, 401)
         self.request("/api/auth/login", "POST", {"password":"test-workspace-password"})
         self.assertTrue(self.cookie.startswith("AURA_SESSION="))
+
+    def test_cross_origin_mutation_is_rejected_and_metrics_are_aggregate(self):
+        request = urllib.request.Request(
+            self.base + "/api/auth/logout", data=b"{}", method="POST",
+            headers={"Content-Type": "application/json", "Origin": "https://attacker.example",
+                     "Cookie": self.cookie},
+        )
+        self.assert_http_error(request, 403)
+        _, metrics = self.request("/api/metrics")
+        self.assertGreater(metrics["requestsTotal"], 0)
+        self.assertIn("requestLatencyMs", metrics)
+        self.assertNotIn("test-workspace-password", json.dumps(metrics))
+        self.assertNotIn("Choose a role", json.dumps(metrics))
+
+    def test_ai_request_budget_enforces_configured_per_session_limit(self):
+        token = uuid.uuid4().hex
+        key = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        client = SimpleNamespace(_session_token=lambda: token, client_address=("127.0.0.1", 0))
+        try:
+            with patch.dict(os.environ, {"AURA_AI_REQUESTS_PER_MINUTE": "1"}):
+                aura_server.AuraHandler._consume_ai_budget(client)
+                with self.assertRaises(aura_server.RateLimitError):
+                    aura_server.AuraHandler._consume_ai_budget(client)
+        finally:
+            aura_server._ai_requests_by_session.pop(key, None)
 
     def test_create_evaluate_ingest_verify_apply_and_scenario_compare(self):
         a, b = str(uuid.uuid4()), str(uuid.uuid4())
@@ -81,17 +113,36 @@ class WorkflowApiTests(unittest.TestCase):
         })
         self.assertEqual(robustness["iterations"], 100)
         self.assertEqual(robustness["revisionId"], decision["currentRevision"]["id"])
+        _, saved_runs = self.request(f"/api/decisions/{did}/robustness-runs")
+        self.assertEqual(len(saved_runs["runs"]), 1)
+        _, replay = self.request(f"/api/decisions/{did}/robustness", "POST", saved_runs["runs"][0]["settings"])
+        self.assertEqual(replay["seed"], robustness["seed"])
+        self.assertEqual(replay["options"], robustness["options"])
         boundary = "----AURA" + uuid.uuid4().hex
         document_text = b"The internship provides a weekly mentor meeting and code review. Weekly workload averages three hours per day."
         payload = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"role.txt\"\r\nContent-Type: text/plain\r\n\r\n".encode() + document_text + f"\r\n--{boundary}--\r\n".encode())
         self.request(f"/api/decisions/{did}/documents", "POST", payload, f"multipart/form-data; boundary={boundary}")
+        # Upload processing is intentionally asynchronous; wait for the worker
+        # to publish its chunks before exercising retrieval.
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            documents = self.request(f"/api/decisions/{did}/documents")[1]["documents"]
+            if documents and documents[0]["parse_status"] in {"ready", "failed"}:
+                break
+            time.sleep(0.05)
+        self.assertTrue(documents, "Upload should be recorded before processing completes.")
+        self.assertEqual(documents[0]["parse_status"], "ready", "Uploaded text should finish processing.")
         _, found = self.request(f"/api/decisions/{did}/evidence?q=mentor%20meeting")
         self.assertTrue(found["passages"])
         passage = found["passages"][0]
         self.assertIn("mentor meeting", passage["text"])
-        with self.assertRaises(urllib.error.HTTPError) as blocked:
+        try:
             self.request(f"/api/decisions/{did}/evidence/apply", "POST", {"chunkId":passage["id"],"optionId":a,"criterionId":c1,"value":5})
-        self.assertEqual(blocked.exception.code, 422)
+        except urllib.error.HTTPError as error:
+            self.assertEqual(error.code, 422)
+            error.close()
+        else:
+            self.fail("Unverified evidence must not be applied.")
         self.request(f"/api/evidence/{passage['id']}", "PATCH", {"status":"verified"})
         _, revised = self.request(f"/api/decisions/{did}/evidence/apply", "POST", {"chunkId":passage["id"],"optionId":a,"criterionId":c1,"value":5})
         self.assertEqual(revised["currentRevision"]["revisionNo"], 2)

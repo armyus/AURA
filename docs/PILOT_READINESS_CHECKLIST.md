@@ -15,9 +15,12 @@ AURA is a local, single-user pilot workspace. It is not ready for public hosting
 - [x] Robustness simulations accept explicit rating and importance ranges and persist the revision, ranges, seed, settings, and output for replay.
 - [x] Authenticated `/api/metrics` returns aggregate process counters and latency totals without decision text or resource identifiers.
 - [x] Prompt-injection fixtures and a runnable local evaluation command are included.
-- [ ] Run the prompt-injection evaluation against the chosen Ollama model and review every failure. Command: `python -m aura.evaluate_evidence`.
-- [ ] Run the complete unit and workflow suite after implementation freeze.
-- [ ] Perform a keyboard-only and screen-reader pass on upload status, AI suggestions, and saved simulation replay.
+- [x] Ollama smoke checks pass for decision drafts, evidence suggestions, and plain-language result explanations with `qwen3.5:0.8b`.
+- [x] Synthetic scoring evaluation passes 4/4 cases; deterministic engine mean latency is under 1 ms on this development machine. This does not measure optional model latency or cost.
+- [x] Run the prompt-injection evaluation against the chosen Ollama model and review every failure. The first Qwen3.5 0.8B run followed an injected fake system instruction; instruction-like source sentences are now filtered before model input. The rerun passes all 3 fixtures. This is a model-specific automated check, not proof against all prompt injections. Command: `python -m aura.evaluate_evidence`.
+- [x] Run the complete unit and workflow suite after implementation freeze. `python -m unittest discover -s tests -v` passes all 22 cases, including upload completion, saved simulation replay, cross-origin rejection, aggregate metrics, and the AI request cap.
+- [x] Review keyboard tab navigation and the browser accessibility tree for upload, AI suggestion, and saved simulation controls. Fixed missing input labels, replay labels, and live result regions. This does not replace a spoken screen-reader check with Narrator or NVDA.
+- [ ] Complete a spoken screen-reader pass with Narrator or NVDA on upload status, AI suggestions, and saved simulation replay.
 
 ## Internal security review
 

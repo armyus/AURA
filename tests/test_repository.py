@@ -10,7 +10,7 @@ class RepositoryTests(unittest.TestCase):
     def setUp(self): self.repo = Repository(":memory:")
 
     def test_versioned_schema_and_local_password_sessions(self):
-        self.assertEqual(self.repo.migration_version(), 2)
+        self.assertEqual(self.repo.migration_version(), 4)
         self.assertFalse(self.repo.auth_configured())
         with self.assertRaises(DecisionValidationError): self.repo.set_password("short")
         self.repo.set_password("correct-horse-battery-staple")
@@ -39,7 +39,13 @@ class RepositoryTests(unittest.TestCase):
         self.assertIn('role="tablist"', app)
         self.assertIn("ArrowLeft", app)
         self.assertIn("aria-selected", app)
+        self.assertIn('for="evidenceQuery"', app)
+        self.assertIn('aria-live="polite" aria-atomic="true" aria-label="Evidence suggestions"', app)
+        self.assertIn('aria-label="Replay simulation from ${esc(label)}"', app)
+        self.assertIn('role="status" aria-live="polite" aria-atomic="true"', app)
+        self.assertIn('for="robustnessOption"', app)
         self.assertIn(":focus-visible", css)
+        self.assertIn(".sr-only", css)
 
     def test_sidebar_and_decision_table_avoid_page_level_horizontal_overflow(self):
         root = Path(__file__).resolve().parents[1]
