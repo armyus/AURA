@@ -67,4 +67,6 @@
 .history-item:hover,.history-item.selected{background:#edf8f6;color:#176f69}
 .history-item:focus-visible{outline:2px solid #25a99c;outline-offset:2px}
 .result-edit-hint{margin-top:5px!important;color:#75889a!important;font-size:10px!important}
+.hero-actions{position:relative;z-index:1;display:grid;justify-items:end;gap:8px;flex:none}.hero-action-hint{max-width:190px;color:#c5d6e2;font-size:11px;text-align:right;overflow-wrap:anywhere}.hero .hero-new{border:0;background:transparent;color:#d6e5ed;text-decoration:underline;text-underline-offset:3px;padding:7px 4px;font-size:11px;font-weight:700}.hero .hero-new:hover{color:#fff}.hero .hero-new:focus-visible{outline-color:#ffd17d}
 @media(max-width:560px){.criterion-card-head{display:grid;grid-template-columns:1fr}.importance-field{width:100%;grid-template-columns:1fr 80px}.importance-field small{grid-column:1/-1}.option-rating{grid-template-columns:1fr;gap:5px}.option-rating .rating-control{grid-template-columns:1fr auto}.advanced-grid{grid-template-columns:1fr}}
+@media(max-width:690px){.hero-actions{justify-items:start;margin-top:17px}.hero-action-hint{text-align:left}.hero .hero-new{padding-left:0}}
