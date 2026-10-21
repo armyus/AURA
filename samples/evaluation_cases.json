@@ -1,0 +1,48 @@
+[
+  {
+    "name": "higher weighted benefit wins",
+    "model": {
+      "options": [{"id":"a","name":"Option A"},{"id":"b","name":"Option B"}],
+      "criteria": [{"id":"c1","name":"Learning","direction":"benefit","importance":4,"valueType":"ordinal"},{"id":"c2","name":"Hours","direction":"benefit","importance":1,"valueType":"ordinal"}],
+      "assessments": {"a":{"c1":{"value":5},"c2":{"value":2}},"b":{"c1":{"value":2},"c2":{"value":5}}}
+    },
+    "expected_status": "complete",
+    "expected_winner": "a"
+  },
+  {
+    "name": "hard constraint excludes high score",
+    "model": {
+      "options": [{"id":"a","name":"Option A"},{"id":"b","name":"Option B"}],
+      "criteria": [{"id":"c1","name":"Mentorship","direction":"benefit","importance":5,"valueType":"ordinal"},{"id":"c2","name":"Hours","direction":"cost","importance":1,"valueType":"ordinal","constraint":{"operator":"lte","threshold":3}}],
+      "assessments": {"a":{"c1":{"value":5},"c2":{"value":5}},"b":{"c1":{"value":3},"c2":{"value":3}}}
+    },
+    "expected_status": "complete",
+    "expected_winner": "b"
+  },
+  {
+    "name": "missing input blocks recommendation",
+    "model": {
+      "options": [{"id":"a","name":"Option A"},{"id":"b","name":"Option B"}],
+      "criteria": [{"id":"c1","name":"Mentorship","direction":"benefit","importance":3,"valueType":"ordinal"},{"id":"c2","name":"Growth","direction":"benefit","importance":2,"valueType":"ordinal"}],
+      "assessments": {"a":{"c1":{"value":5},"c2":{"value":4}},"b":{"c1":{"value":3}}}
+    },
+    "expected_status": "incomplete",
+    "expected_winner": null
+  },
+  {
+    "name": "numeric target rewards values near user target",
+    "model": {
+      "options": [{"id":"a","name":"Balanced role"},{"id":"b","name":"Long commute role"}],
+      "criteria": [
+        {"id":"commute","name":"Commute minutes","direction":"cost","importance":1,"valueType":"numeric","scale":{"min":0,"max":100}},
+        {"id":"hours","name":"Weekly study hours","direction":"target","importance":1,"valueType":"numeric","scale":{"min":0,"max":60,"target":30,"tolerance":10}}
+      ],
+      "assessments": {
+        "a":{"commute":{"value":30,"status":"user"},"hours":{"value":30,"status":"user"}},
+        "b":{"commute":{"value":10,"status":"user"},"hours":{"value":50,"status":"user"}}
+      }
+    },
+    "expected_status": "complete",
+    "expected_winner": "a"
+  }
+]

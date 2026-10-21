@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10253c">
+  <title>AURA · Decision workspace</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to main content</a>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="/" aria-label="AURA home"><span class="brand-mark">A</span><span>AURA<small>DECISION STUDIO</small></span></a>
+      <button class="button primary full" id="newDecisionButton">＋ New decision</button>
+      <div class="sidebar-label">YOUR DECISIONS</div>
+      <nav id="decisionList" class="decision-list" aria-label="Your decisions"></nav>
+      <div class="sidebar-foot"><span class="live-dot"></span> Private local workspace</div>
+    </aside>
+    <main class="main">
+      <header class="topbar">
+        <div><div class="eyebrow">PERSONAL DECISION INTELLIGENCE</div><div id="crumbTitle" class="crumb-title">Your workspace</div></div>
+        <div class="top-actions"><span class="privacy-pill"><span class="live-dot"></span> Stored on this device</span><button class="button outline small-button" id="signOutButton" type="button" hidden>Sign out</button></div>
+      </header>
+      <section id="content" class="content" aria-live="polite"></section>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
